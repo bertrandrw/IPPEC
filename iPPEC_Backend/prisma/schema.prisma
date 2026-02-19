@@ -1,0 +1,472 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// 1. Define the database connection
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 2. Define the Prisma Client generator
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------
+// ENUMS: For predefined, constant values
+// ----------------------------------------
+
+enum Role {
+  PATIENT
+  DOCTOR
+  PHARMACIST
+  ADMIN
+  INSURER
+}
+
+enum PrescriptionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+}
+
+enum ArticleStatus {
+  PRIVATE // Draft, only visible to the author
+  PUBLISHED // Visible to all authenticated users
+  ARCHIVED // Hidden from public view, but not deleted
+}
+
+enum ClaimStatus {
+  GENERATED
+  SUBMITTED
+  PROCESSING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum ClaimItemStatus {
+  PENDING    // The default status when a report is submitted
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  READY_FOR_PICKUP
+  COMPLETED
+  CANCELLED
+  IN_TRANSIT
+  DELIVERED
+  CONFIRMED
+}
+
+enum FacilityType {
+  HOSPITAL
+  CLINIC
+  HEALTH_CENTER
+  POLYCLINIC
+  OTHER
+}
+
+enum Ownership {
+  PRIVATE
+  GOVERNMENT
+  NGO
+  OTHER
+}
+
+// ----------------------------------------
+// CORE USER & AUTHENTICATION MODELS
+// ----------------------------------------
+
+model User {
+  id         String   @id @default(cuid())
+  email      String?  @unique
+  phone      String?  @unique
+  password   String
+  role       Role
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  patientProfile    PatientProfile?
+  doctorProfile     DoctorProfile?
+  pharmacistProfile PharmacistProfile?
+  insurerProfile    InsurerProfile?
+
+  @@map("users")
+}
+
+model PatientProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName    String
+  dateOfBirth DateTime
+  sex         String
+  nid         String?  @unique
+
+  // This relationship stays the same. The patient is just "covered by" a company.
+  // The terms are decided at the pharmacy.
+  insuranceCompanyId    String?
+  insuranceCompany      InsuranceCompany? @relation(fields: [insuranceCompanyId], references: [id], onUpdate: NoAction, onDelete: SetNull)
+  insurancePolicyNumber String?
+  coveragePercentage    Float?
+
+  prescriptions Prescription[]
+  orders        Order[]
+
+  @@map("patient_profiles")
+}
+
+model DoctorProfile {
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName      String
+  credentials   String
+  specialty     String
+  licenceNumber String? @unique
+
+  hospitalId String
+  hospital   Hospital @relation(fields: [hospitalId], references: [id])
+
+  prescriptionsIssued Prescription[]
+  articles            Article[]
+
+  @@map("doctor_profiles")
+}
+
+model PharmacistProfile {
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName      String
+  licenceNumber String? @unique
+
+  pharmacyId String
+  pharmacy   Pharmacy @relation(fields: [pharmacyId], references: [id])
+
+  dispensedPrescriptions Prescription[]
+
+  @@map("pharmacist_profiles")
+}
+
+model InsurerProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName String
+
+  // An insurer user must belong to one insurance company
+  insuranceCompanyId String
+  insuranceCompany   InsuranceCompany @relation(fields: [insuranceCompanyId], references: [id])
+
+  @@map("insurer_profiles")
+}
+
+// ----------------------------------------
+// INSTITUTIONAL MODELS
+// ----------------------------------------
+
+model Hospital {
+  id        String       @id @default(cuid())
+  name      String
+  address   String
+  type      FacilityType @default(HOSPITAL)
+  ownership Ownership    @default(PRIVATE)
+
+  // Contact Details
+  email          String? @unique
+  phone          String?
+  emergencyPhone String?
+  website        String?
+
+  // More detailed Location (can be part of the address string or separate)
+  // For simplicity, we'll keep a single address string for now, but these could be added:
+  // province    String?
+  // country     String?
+
+  // Facility Head Info
+  facilityHeadName        String?
+  facilityHeadDesignation String?
+  facilityHeadPhone       String?
+  facilityHeadEmail       String?
+
+  createdAt DateTime @default(now())
+
+  doctors       DoctorProfile[]
+  prescriptions Prescription[]
+
+  @@map("hospitals")
+}
+
+model Pharmacy {
+  id            String   @id @default(cuid())
+  name          String
+  address       String
+  licenseNumber String   @unique
+  latitude      Float?
+  longitude     Float?
+  createdAt     DateTime @default(now())
+
+  companyCode       String?
+  managingDirector  String?
+  licenseExpiryDate DateTime?
+  contactPhone      String?
+  contactEmail      String?
+
+  authorizedPharmacistId String?
+
+  pharmacists PharmacistProfile[]
+  inventory   MedicineInventory[]
+
+  // --- MODIFIED RELATIONSHIP ---
+  // A pharmacy now has a list of specific insurance plans it accepts, with terms.
+  insurancePlansAccepted InsuranceAcceptance[]
+  orders                 Order[]
+  claimReports           ClaimReport[]
+
+  @@index([latitude, longitude])
+  @@map("pharmacies")
+}
+
+model InsuranceCompany {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  contactEmail String?  @unique
+  contactPhone String?
+  address      String?
+  createdAt    DateTime @default(now())
+
+  // Patients covered by this insurance
+  // An insurance company can have many employee users (insurers)
+  employees InsurerProfile[]
+
+  // An insurance company covers many patients
+  coveredPatients PatientProfile[]
+
+  // An insurance company has agreements with many pharmacies
+  pharmacyAgreements InsuranceAcceptance[]
+  claimReports       ClaimReport[]
+
+  @@map("insurance_companies")
+}
+
+// --- NEW MODEL: The Explicit Join Table ---
+// This model connects a Pharmacy to an InsuranceCompany and stores the terms of that agreement.
+model InsuranceAcceptance {
+  id                 String @id @default(cuid())
+  pharmacyId         String
+  insuranceCompanyId String
+
+  // This is the crucial new field!
+  // Stored as a float, e.g., 0.80 for 80% coverage.
+
+  pharmacy         Pharmacy         @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+  insuranceCompany InsuranceCompany @relation(fields: [insuranceCompanyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A pharmacy can only have one agreement per insurance company.
+  @@unique([pharmacyId, insuranceCompanyId])
+  @@map("insurance_acceptances")
+}
+
+// ----------------------------------------
+// CORE PRESCRIPTION & MEDICINE MODELS
+// ----------------------------------------
+
+// No changes needed here. The logic is handled by the new model.
+model Prescription {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  patientId  String
+  patient    PatientProfile @relation(fields: [patientId], references: [id])
+  doctorId   String
+  doctor     DoctorProfile  @relation(fields: [doctorId], references: [id])
+  hospitalId String
+  hospital   Hospital       @relation(fields: [hospitalId], references: [id])
+
+  chiefComplaints String?
+  findingsOnExam  String?
+  investigations  String?
+  advice          String?
+  followUpDate    DateTime?
+
+  medicines PrescribedMedicine[]
+
+  status        PrescriptionStatus @default(ACTIVE)
+  dispensedById String?
+  dispensedBy   PharmacistProfile? @relation(fields: [dispensedById], references: [id])
+  dispensedAt   DateTime?
+
+  orderItems    OrderItem[]
+  claimItem   ClaimItem?
+
+  @@map("prescriptions")
+}
+
+model PrescribedMedicine {
+  id String @id @default(cuid())
+
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id])
+
+  // --- CORRECT, NEW STRUCTURED FIELDS ---
+  route           String
+  form            String
+  quantityPerDose Int
+  frequency       String
+  durationInDays  Int?
+  fullInstruction String
+  totalQuantity   String?
+
+  isDispensed Boolean @default(false)
+
+  @@map("prescribed_medicines")
+}
+
+model Medicine {
+  id           String   @id @default(cuid())
+  brandName    String
+  genericName  String
+  manufacturer String
+  price Float  // or String, but Float is common for SQLite
+  createdAt    DateTime @default(now())
+
+  prescriptions PrescribedMedicine[]
+  inventory     MedicineInventory[]
+  orderItems    OrderItem[]
+
+  @@unique([brandName, manufacturer])
+  @@map("medicines")
+}
+
+model MedicineInventory {
+  id          String      @id @default(cuid())
+  pharmacyId  String
+  medicineId  String
+  stockStatus StockStatus @default(IN_STOCK)
+  updatedAt   DateTime    @updatedAt
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+  medicine Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@unique([pharmacyId, medicineId])
+  @@map("medicine_inventory")
+}
+
+// Model for the Article
+model Article {
+  id        String        @id @default(cuid())
+  title     String
+  featuredImageUrl String?
+  content String  // just String, no @db.Text
+  status    ArticleStatus @default(PUBLISHED)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // An article is authored by one doctor
+  category String?
+  authorId String
+  author   DoctorProfile @relation(fields: [authorId], references: [id])
+
+  @@map("articles")
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  status    OrderStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  // An order is placed by one patient
+  patientId String
+  patient   PatientProfile @relation(fields: [patientId], references: [id])
+
+  // An order is fulfilled by one pharmacy
+  pharmacyId String
+  pharmacy   Pharmacy @relation(fields: [pharmacyId], references: [id])
+
+  // An order can contain multiple items
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  quantity Int    @default(1) // How many units of the medicine are ordered
+
+  // Link to the parent order
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  // Link to the specific medicine being ordered
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id])
+
+  // Crucially, link to the prescription that authorizes this order item
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+
+  @@map("order_items")
+}
+
+// This model represents a batch of claims submitted by a pharmacy to an insurer.
+model ClaimReport {
+  id        String      @id @default(cuid())
+  startDate DateTime
+  endDate   DateTime
+  status    ClaimStatus @default(SUBMITTED) // This now represents the OVERALL status of the report
+  
+  pharmacyId String
+  pharmacy   Pharmacy @relation(fields: [pharmacyId], references: [id])
+  
+  insuranceCompanyId String
+  insuranceCompany   InsuranceCompany @relation(fields: [insuranceCompanyId], references: [id])
+  
+  // --- RELATIONSHIP CHANGE ---
+  // A report now contains many ClaimItems, not a direct link to prescriptions
+  claimItems ClaimItem[]
+
+  totalAmount Float
+  approvedAmount Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("claim_reports")
+}
+
+model ClaimItem {
+  id              String          @id @default(cuid())
+  
+  status          ClaimItemStatus @default(PENDING)
+  rejectionReason String?         // A field for the insurer to explain why an item was rejected
+
+  // A claim item belongs to one report
+  claimReportId   String
+  claimReport     ClaimReport     @relation(fields: [claimReportId], references: [id])
+  
+  // A claim item is for one specific prescription
+  prescriptionId  String          @unique // A prescription can only be in one claim item
+  prescription    Prescription    @relation(fields: [prescriptionId], references: [id])
+
+  @@map("claim_items")
+}

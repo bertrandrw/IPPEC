@@ -1,0 +1,14 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue rounded square background -->
+  <rect width="26" height="26" x="3" y="3" rx="6" fill="#1E88E5"/>
+  
+  <!-- Rx Symbol -->
+  <text x="16" y="21" font-family="Arial, sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="white">Rx</text>
+  
+  <!-- Green medical cross at top-right -->
+  <rect x="23" y="1" width="8" height="8" fill="#4CAF50"/>
+  <!-- Cross horizontal bar -->
+  <rect x="25" y="4" width="4" height="1.5" fill="white"/>
+  <!-- Cross vertical bar -->
+  <rect x="26.25" y="2.75" width="1.5" height="4" fill="white"/>
+</svg>

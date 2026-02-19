@@ -1,0 +1,15 @@
+<!-- Placeholder iPPEC Logo - Replace with designer's logo -->
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue rounded square background -->
+  <rect width="40" height="40" x="4" y="4" rx="12" fill="#1E88E5"/>
+  
+  <!-- Rx Symbol -->
+  <text x="24" y="30" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="white">Rx</text>
+  
+  <!-- Green medical cross at top-right -->
+  <rect x="36" y="2" width="10" height="10" fill="#4CAF50"/>
+  <!-- Cross horizontal bar -->
+  <rect x="38" y="5.5" width="6" height="2" fill="white"/>
+  <!-- Cross vertical bar -->
+  <rect x="40" y="3.5" width="2" height="6" fill="white"/>
+</svg>

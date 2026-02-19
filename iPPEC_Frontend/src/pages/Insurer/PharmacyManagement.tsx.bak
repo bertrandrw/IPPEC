@@ -1,0 +1,272 @@
+import React, { useState, useEffect } from 'react';
+import Layout from '../../components/Layout/Layout';
+import api from '../../utils/api';
+import { 
+  Building2, 
+  Eye,
+  MapPin,
+  Phone,
+  Mail
+} from 'lucide-react';
+
+interface Pharmacy {
+  id: string;
+  name: string;
+  address: string;
+  licenseNumber: string;
+  latitude: number;
+  longitude: number;
+  createdAt: string;
+  companyCode: string;
+  managingDirector: string;
+  licenseExpiryDate: string;
+  contactPhone: string;
+  contactEmail: string;
+  authorizedPharmacistId: string | null;
+  isPartner?: boolean;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
+const PharmacyManagementInsurer: React.FC = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Fetch all pharmacies and mark partner status
+  useEffect(() => {
+    const fetchPharmacies = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch all pharmacies and partner pharmacies
+        const [allPharmaciesRes, partnerPharmaciesRes] = await Promise.all([
+          api.get(`/pharmacies?page=${page}&limit=10`),
+          api.get(`/portal/insurer/pharmacies?page=${page}&limit=10`)
+        ]);
+
+        if (allPharmaciesRes.data.success && partnerPharmaciesRes.data.success) {
+          const allPharms = allPharmaciesRes.data.data.data as Pharmacy[];
+          const partnerPharms = partnerPharmaciesRes.data.data.data as Pharmacy[];
+
+          // Mark partner pharmacies
+          const pharmaciesWithPartnerStatus = allPharms.map((pharm: Pharmacy) => ({
+            ...pharm,
+            isPartner: partnerPharms.some((partner: Pharmacy) => partner.id === pharm.id)
+          }));
+
+          setPharmacies(pharmaciesWithPartnerStatus);
+          setTotalPages(allPharmaciesRes.data.data.meta.totalPages);
+        } else {
+          setError('Failed to fetch pharmacies');
+        }
+      } catch (error) {
+        setError('Network error. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPharmacies();
+  }, [page]);
+
+  // Handle adding/removing partner pharmacy
+  const togglePartnerStatus = async (pharmacy: Pharmacy) => {
+    try {
+      setActionLoading(true);
+      setActionError(null);
+
+      if (pharmacy.isPartner) {
+        // Remove from partners
+        await api.delete(`/portal/insurer/pharmacies/${pharmacy.id}`);
+      } else {
+        // Add to partners
+        await api.post(`/portal/insurer/pharmacies`, { pharmacyId: pharmacy.id });
+      }
+
+      // Refresh the pharmacies list
+      const updatedPharmacies = pharmacies.map(p => {
+        if (p.id === pharmacy.id) {
+          return { ...p, isPartner: !p.isPartner };
+        }
+        return p;
+      });
+      setPharmacies(updatedPharmacies);
+    } catch (error) {
+      setActionError(`Failed to ${pharmacy.isPartner ? 'remove' : 'add'} partner pharmacy. Please try again.`);
+    } finally {
+      setActionLoading(false);
+    }
+        console.error('Error fetching pharmacies:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPharmacies();
+  }, [page]);
+
+  const filteredPharmacies = pharmacies.filter(pharmacy => {
+    const matchesSearch = pharmacy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pharmacy.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pharmacy.licenseNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
+
+  if (selectedPharmacy) {
+    return (
+      <Layout title="Pharmacy Details">
+        <div className="max-w-3xl mx-auto">
+          <button
+            onClick={() => setSelectedPharmacy(null)}
+            className="mb-6 inline-flex items-center text-primary-600 hover:text-primary-700"
+          >
+            ← Back to Pharmacies
+          </button>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden p-6">
+            <h1 className="text-2xl font-bold mb-2">{selectedPharmacy.name}</h1>
+            <p className="text-gray-700 mb-2">License: {selectedPharmacy.licenseNumber}</p>
+            <p className="text-gray-700 mb-2">Director: {selectedPharmacy.managingDirector}</p>
+            <p className="text-gray-700 mb-2">Address: {selectedPharmacy.address}</p>
+            <p className="text-gray-700 mb-2">Phone: {selectedPharmacy.contactPhone}</p>
+            <p className="text-gray-700 mb-2">Email: {selectedPharmacy.contactEmail}</p>
+            <p className="text-gray-700 mb-2">Company Code: {selectedPharmacy.companyCode}</p>
+            <p className="text-gray-700 mb-2">License Expiry: {new Date(selectedPharmacy.licenseExpiryDate).toLocaleDateString()}</p>
+            <p className="text-gray-700 mb-2">Created At: {new Date(selectedPharmacy.createdAt).toLocaleDateString()}</p>
+            <p className="text-gray-700 mb-2">Location: {selectedPharmacy.latitude}, {selectedPharmacy.longitude}</p>
+            <p className="text-gray-700 mb-2">Authorized Pharmacist ID: {selectedPharmacy.authorizedPharmacistId || 'N/A'}</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout title="Pharmacy Management">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Pharmacy Management</h2>
+            <p className="text-gray-600 mt-1">View and manage partner pharmacies</p>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search pharmacies..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-4 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none w-full sm:w-64"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="text-center py-12">Loading pharmacies...</div>
+        ) : error ? (
+          <div className="text-center py-12 text-red-600">{error}</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredPharmacies.map((pharmacy) => (
+                <div
+                  key={pharmacy.id}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setSelectedPharmacy(pharmacy)}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <Building2 className="w-10 h-10 text-primary-600" />
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{pharmacy.name}</h3>
+                        <p className="text-sm text-gray-500">License: {pharmacy.licenseNumber}</p>
+                        <p className="text-sm text-gray-500">Director: {pharmacy.managingDirector}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-start space-x-2">
+                      <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                      <span className="text-sm text-gray-600">{pharmacy.address}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Phone className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">{pharmacy.contactPhone}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">{pharmacy.contactEmail}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPharmacy(pharmacy);
+                      }}
+                      className="inline-flex items-center text-primary-600 hover:text-primary-700 text-sm font-medium"
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            <div className="flex justify-center mt-6">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+                className="px-4 py-2 border rounded-l bg-white disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="px-4 py-2 border-t border-b bg-white">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(page + 1)}
+                className="px-4 py-2 border rounded-r bg-white disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+
+            {filteredPharmacies.length === 0 && (
+              <div className="text-center py-12">
+                <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No pharmacies found</h3>
+                <p className="text-gray-500">Try adjusting your search criteria.</p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Layout>
+  );
+};
+
+export default PharmacyManagementInsurer;

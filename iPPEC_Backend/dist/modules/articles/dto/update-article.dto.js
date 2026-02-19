@@ -1,0 +1,2 @@
+export {};
+//# sourceMappingURL=update-article.dto.js.map

@@ -1,0 +1,415 @@
+import React, { useState, useEffect } from 'react';
+import Layout from '../../components/Layout/Layout';
+import api from '../../utils/api';
+import { 
+  Building2, 
+  Eye,
+  MapPin,
+  Phone,
+  Mail,
+  Plus,
+  Trash2,
+  Check
+} from 'lucide-react';
+
+interface Pharmacy {
+  id: string;
+  name: string;
+  address: string;
+  licenseNumber: string;
+  latitude: number;
+  longitude: number;
+  createdAt: string;
+  companyCode: string;
+  managingDirector: string;
+  licenseExpiryDate: string;
+  contactPhone: string;
+  contactEmail: string;
+  authorizedPharmacistId: string | null;
+}
+
+const PharmacyManagementInsurer: React.FC = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [addingPharmacy, setAddingPharmacy] = useState<string | null>(null);
+  const [removingPharmacy, setRemovingPharmacy] = useState<string | null>(null);
+
+  const fetchPharmacies = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get(`/portal/insurer/pharmacies?page=${page}&limit=10`);
+      if (response.data.success && response.data.data) {
+        setPharmacies(response.data.data.data);
+        setTotalPages(response.data.data.meta.totalPages);
+      } else {
+        setError(response.data.message || 'Failed to fetch pharmacies');
+      }
+    } catch (error: any) {
+      console.error('Fetch error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.response?.data?.message,
+        error: error.message
+      });
+      
+      if (error.response?.status === 401) {
+        setError('Please log in to view pharmacies.');
+      } else if (error.response?.status === 403) {
+        setError('You do not have permission to view pharmacies.');
+      } else if (error.response?.status === 404) {
+        setPharmacies([]);
+        setError(null);
+      } else if (error.response?.data?.message) {
+        setError(error.response.data.message);
+      } else if (!navigator.onLine) {
+        setError('You are offline. Please check your internet connection.');
+      } else {
+        setError(`Network error (${error.message}). Please try again later.`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPharmacies();
+  }, [page]);
+
+  const addPharmacy = async (pharmacyId: string) => {
+    try {
+      setAddingPharmacy(pharmacyId);
+      await api.post(`/portal/insurer/pharmacies`, { pharmacyId });
+      await fetchPharmacies();
+      setAddingPharmacy(null);
+    } catch (error: any) {
+      console.error('Error adding pharmacy:', error);
+      setError(error.response?.data?.message || 'Failed to add pharmacy. Please try again.');
+      setAddingPharmacy(null);
+    }
+  };
+
+  const removePharmacy = async (pharmacyId: string) => {
+    try {
+      setRemovingPharmacy(pharmacyId);
+      await api.delete(`/portal/insurer/pharmacies/${pharmacyId}`);
+      await fetchPharmacies();
+      setRemovingPharmacy(null);
+    } catch (error: any) {
+      console.error('Error removing pharmacy:', error);
+      setError(error.response?.data?.message || 'Failed to remove pharmacy. Please try again.');
+      setRemovingPharmacy(null);
+    }
+  };
+
+  const filteredPharmacies = pharmacies.filter(pharmacy => {
+    const matchesSearch = pharmacy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pharmacy.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pharmacy.licenseNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
+
+  if (selectedPharmacy) {
+    return (
+      <Layout title="Partner Details">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <button
+            onClick={() => setSelectedPharmacy(null)}
+            className="mb-6 inline-flex items-center text-primary-600 hover:text-primary-700"
+          >
+            ← Back to Partners
+          </button>
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="relative p-8">
+              <div className="absolute top-8 right-8">
+                {new Date(selectedPharmacy.licenseExpiryDate) > new Date() ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    Active License
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                    License Expired
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="flex-shrink-0 bg-primary-50 rounded-xl p-3">
+                  <Building2 className="w-8 h-8 text-primary-600" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">{selectedPharmacy.name}</h1>
+                  <p className="text-gray-500">{selectedPharmacy.licenseNumber}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-2">Contact Information</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                      <span className="text-gray-600">{selectedPharmacy.address}</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <Phone className="w-5 h-5 text-gray-400" />
+                      <span className="text-gray-600">{selectedPharmacy.contactPhone}</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <Mail className="w-5 h-5 text-gray-400" />
+                      <span className="text-gray-600">{selectedPharmacy.contactEmail}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-2">Additional Details</h3>
+                  <dl className="space-y-2">
+                    <div>
+                      <dt className="text-sm text-gray-500">Managing Director</dt>
+                      <dd className="text-gray-900">{selectedPharmacy.managingDirector}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm text-gray-500">Company Code</dt>
+                      <dd className="text-gray-900">{selectedPharmacy.companyCode}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm text-gray-500">License Expiry</dt>
+                      <dd className="text-gray-900">
+                        {new Date(selectedPharmacy.licenseExpiryDate).toLocaleDateString()}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm text-gray-500">Partner Since</dt>
+                      <dd className="text-gray-900">
+                        {new Date(selectedPharmacy.createdAt).toLocaleDateString()}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <h3 className="font-medium text-gray-900 mb-2">Location</h3>
+                <p className="text-gray-600">
+                  Latitude: {selectedPharmacy.latitude}, Longitude: {selectedPharmacy.longitude}
+                </p>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => removePharmacy(selectedPharmacy.id)}
+                  className="inline-flex items-center justify-center px-4 py-2 border border-red-600 text-red-600 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors"
+                  disabled={removingPharmacy === selectedPharmacy.id}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {removingPharmacy === selectedPharmacy.id ? 'Removing Partner...' : 'Remove Partner'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout title="Partner Pharmacies">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header with Stats */}
+        <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl shadow-xl p-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4">
+              <h3 className="text-white text-sm font-medium">Total Partners</h3>
+              <p className="text-white text-2xl font-bold mt-2">{pharmacies.length}</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4">
+              <h3 className="text-white text-sm font-medium">Active Licenses</h3>
+              <p className="text-white text-2xl font-bold mt-2">
+                {pharmacies.filter(p => new Date(p.licenseExpiryDate) > new Date()).length}
+              </p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4">
+              <h3 className="text-white text-sm font-medium">Total Locations</h3>
+              <p className="text-white text-2xl font-bold mt-2">
+                {Array.from(new Set(pharmacies.map(p => p.address))).length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex-1 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                  <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search by name, license, or location..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-3 w-full border-0 ring-1 ring-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 bg-gray-50"
+              />
+            </div>
+            <div className="flex items-center gap-4">
+              <select
+                className="pl-4 pr-8 py-3 border-0 ring-1 ring-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 bg-gray-50"
+                value="newest"
+                onChange={() => {}}
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name">Name A-Z</option>
+                <option value="expiry">License Expiry</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-600 border-t-transparent"></div>
+              <p className="text-gray-600">Loading partners...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 rounded-2xl p-8 text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <p className="text-red-600 font-medium">{error}</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredPharmacies.map((pharmacy) => (
+                <div
+                  key={pharmacy.id}
+                  className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 overflow-hidden"
+                >
+                  <div className="relative p-6 pb-4">
+                    <div className="absolute top-4 right-4">
+                      {new Date(pharmacy.licenseExpiryDate) > new Date() ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Active License
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          License Expired
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="flex-shrink-0 bg-primary-50 rounded-xl p-3">
+                        <Building2 className="w-8 h-8 text-primary-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+                          {pharmacy.name}
+                        </h3>
+                        <p className="text-sm text-gray-500">{pharmacy.licenseNumber}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-start space-x-3">
+                        <MapPin className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm text-gray-600">{pharmacy.address}</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <Phone className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm text-gray-600">{pharmacy.contactPhone}</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <Mail className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm text-gray-600">{pharmacy.contactEmail}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 text-sm text-gray-500">
+                      <span className="font-medium">Managing Director:</span> {pharmacy.managingDirector}
+                    </div>
+                  </div>
+
+                  <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                    <div className="flex items-center justify-between gap-4">
+                      <button
+                        onClick={() => setSelectedPharmacy(pharmacy)}
+                        className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-xl text-sm font-medium transition-colors"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removePharmacy(pharmacy.id);
+                        }}
+                        className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-red-600 text-red-600 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors"
+                        disabled={removingPharmacy === pharmacy.id}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {removingPharmacy === pharmacy.id ? 'Removing...' : 'Remove'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {filteredPharmacies.length > 0 && (
+              <div className="flex justify-center mt-8">
+                <nav className="inline-flex rounded-xl shadow overflow-hidden">
+                  <button
+                    disabled={page === 1}
+                    onClick={() => setPage(page - 1)}
+                    className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white border-r"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-4 py-2 bg-white text-gray-700 border-r">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    disabled={page === totalPages}
+                    onClick={() => setPage(page + 1)}
+                    className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white"
+                  >
+                    Next
+                  </button>
+                </nav>
+              </div>
+            )}
+
+            {filteredPharmacies.length === 0 && (
+              <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+                <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-gray-900 mb-2">No pharmacies found</h3>
+                <p className="text-gray-500 max-w-sm mx-auto">
+                  We couldn't find any pharmacies matching your search criteria. Try adjusting your filters or search terms.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Layout>
+  );
+};
+
+export default PharmacyManagementInsurer;

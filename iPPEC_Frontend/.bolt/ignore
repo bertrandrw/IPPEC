@@ -1,0 +1,4 @@
+./src/pages/Insurer/*.*
+./src/pages/Doctor/*.*
+./src/pages/Patient/*.*
+./src/pages/Pharmacist/*.*

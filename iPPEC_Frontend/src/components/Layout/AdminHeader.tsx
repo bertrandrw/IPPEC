@@ -1,0 +1,169 @@
+import React, { useState } from 'react';
+import { 
+  Search, 
+  Bell, 
+  Settings, 
+  User, 
+  LogOut, 
+  Shield,
+  Menu
+} from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+
+interface AdminHeaderProps {
+  title: string;
+  onMenuClick?: () => void;
+}
+
+const AdminHeader: React.FC<AdminHeaderProps> = ({ title, onMenuClick }) => {
+  const { user, logout } = useAuth();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const notifications = [
+    {
+      id: 1,
+      type: 'pending',
+      message: '5 new doctor registrations pending approval',
+      time: '2 minutes ago',
+      unread: true
+    },
+    {
+      id: 2,
+      type: 'article',
+      message: 'New article submitted for review',
+      time: '1 hour ago',
+      unread: true
+    },
+    {
+      id: 3,
+      type: 'pharmacy',
+      message: 'Pharmacy verification completed',
+      time: '3 hours ago',
+      unread: false
+    }
+  ];
+
+  const unreadCount = notifications.filter(n => n.unread).length;
+
+  return (
+    <header className="bg-white border-b border-slate-200 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 sticky top-0 z-30">
+      <div className="flex items-center justify-between max-w-[1920px] mx-auto">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          {/* Mobile menu button */}
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-[#0288D1] hover:bg-[#E1F5FE] transition-all duration-200 -ml-2"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          
+          <div>
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold bg-gradient-to-r from-[#0288D1] to-[#01579B] bg-clip-text text-transparent truncate">
+              {title}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-medium">
+              Welcome back, <span className="text-[#0288D1] hidden xs:inline">{user?.name}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2 lg:space-x-4">
+          {/* Search Bar - Responsive */}
+          <div className="relative hidden sm:block">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search..."
+              className="pl-9 pr-4 py-2 w-[280px] rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0288D1] focus:border-transparent placeholder-slate-400"
+            />
+          </div>
+
+          {/* Notifications */}
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="p-2 rounded-lg text-slate-600 hover:text-[#0288D1] hover:bg-[#E1F5FE] transition-colors relative"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Notifications Dropdown */}
+          {showNotifications && (
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-200 z-50">
+              <div className="p-4 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900">Notifications</h3>
+              </div>
+              <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+                {notifications.map(notification => (
+                  <div
+                    key={notification.id}
+                    className={`p-4 hover:bg-slate-50 cursor-pointer border-b border-slate-100 ${
+                      notification.unread ? 'bg-blue-50/50' : ''
+                    }`}
+                  >
+                    <p className="text-sm text-slate-800">{notification.message}</p>
+                    <p className="text-xs text-slate-500 mt-1">{notification.time}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="p-4 border-t border-slate-100">
+                <button className="text-[#0288D1] text-sm font-medium hover:text-[#01579B] transition-colors">
+                  View all notifications
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* User Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center space-x-3 hover:bg-[#E1F5FE] rounded-lg p-2 transition-colors"
+            >
+              <div className="w-8 h-8 rounded-lg bg-[#0288D1] flex items-center justify-center text-white font-medium">
+                {user?.name?.[0].toUpperCase()}
+              </div>
+              <div className="text-left hidden sm:block">
+                <p className="text-sm font-medium text-slate-900">{user?.name}</p>
+                <div className="flex items-center">
+                  <Shield className="w-3 h-3 text-[#0288D1] mr-1" />
+                  <span className="text-xs text-slate-600">Administrator</span>
+                </div>
+              </div>
+            </button>
+
+            {/* User Menu Dropdown */}
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 z-50">
+                <div className="p-2">
+                  <button className="w-full flex items-center space-x-3 p-2 rounded-lg text-slate-600 hover:bg-[#E1F5FE] hover:text-[#0288D1] transition-colors">
+                    <User className="w-4 h-4" />
+                    <span className="text-sm">Profile</span>
+                  </button>
+                  <button className="w-full flex items-center space-x-3 p-2 rounded-lg text-slate-600 hover:bg-[#E1F5FE] hover:text-[#0288D1] transition-colors">
+                    <Settings className="w-4 h-4" />
+                    <span className="text-sm">Settings</span>
+                  </button>
+                  <button 
+                    onClick={logout}
+                    className="w-full flex items-center space-x-3 p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="text-sm">Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default AdminHeader;

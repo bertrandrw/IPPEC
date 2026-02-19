@@ -1,0 +1,47 @@
+import React, { useState } from 'react';
+import AdminHeader from './AdminHeader';
+import AdminSidebar from './AdminSidebar';
+
+interface AdminLayoutProps {
+  children: React.ReactNode;
+  title: string;
+}
+
+const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  const toggleMobileMenu = () => {
+    setShowMobileMenu(!showMobileMenu);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="lg:pl-64">
+        {/* Mobile Sidebar */}
+        <div className={`lg:hidden fixed inset-0 z-40 ${showMobileMenu ? '' : 'hidden'}`}>
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-slate-900/50" onClick={toggleMobileMenu} />
+          {/* Sidebar */}
+          <div className="relative">
+            <AdminSidebar onClose={toggleMobileMenu} />
+          </div>
+        </div>
+
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block">
+          <AdminSidebar />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex flex-col min-h-screen">
+          <AdminHeader title={title} onMenuClick={toggleMobileMenu} />
+          <main className="flex-1 p-4 sm:p-6 lg:p-8">
+            {children}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminLayout;

@@ -1,0 +1,86 @@
+{
+  "compilerOptions": {
+    /* Base Options */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+
+    /* Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitAny": true,
+
+    /* Module Options */
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    /* Library */
+    "lib": ["ES2022"],
+
+    /* --- THIS IS THE CRITICAL ADDITION --- */
+    // Explicitly tell TypeScript where to find custom type definition files.
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+
+    /* Output Options */
+    "outDir": "dist",
+    "sourceMap": true,
+
+    /* Path Aliasing */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*.ts"], // This already includes the src/types directory
+  "exclude": ["node_modules", "dist"]
+}
+
+
+
+
+
+
+
+
+
+
+// {
+//   "compilerOptions": {
+//     /* Base Options */
+//     "esModuleInterop": true,
+//     "skipLibCheck": true,
+//     "target": "ES2022", // Use a modern ECMAScript target
+//     "allowJs": true,
+//     "resolveJsonModule": true,
+//     "moduleDetection": "force",
+//     "isolatedModules": true,
+
+//     /* Strictness */
+//     "strict": true,
+//     "noUncheckedIndexedAccess": true,
+//     "noImplicitAny": true,
+
+//     /* Module Options - THIS IS THE CRITICAL FIX */
+//     "module": "NodeNext", // Use the modern module system for Node.js
+//     "moduleResolution": "NodeNext", // This works in tandem with "module": "NodeNext"
+
+//     /* Library - REMOVED "DOM" */
+//     "lib": ["ES2022"], // Do not include "DOM" for a backend project
+
+//     /* Output Options */
+//     "outDir": "dist",
+//     "sourceMap": true,
+
+//     /* Path Aliasing */
+//     "baseUrl": ".",
+//     "paths": {
+//       "@/*": ["src/*"]
+//     }
+//   },
+//   "include": ["src/**/*.ts"], // Simplified and correct include path
+//   "exclude": ["node_modules", "dist"]
+// }
